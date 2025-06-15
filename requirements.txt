@@ -1,0 +1,7 @@
+Flask
+flask-mysqldb
+fpdf
+python-dotenv
+PyMuPDF
+requests
+werkzeug
