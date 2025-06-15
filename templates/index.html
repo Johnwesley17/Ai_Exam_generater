@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Exam Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+  <script>
+    function toggleExamType() {
+      const type = document.querySelector('input[name="exam_type"]:checked').value;
+      document.getElementById('written-options').style.display = (type === 'written') ? 'block' : 'none';
+      document.getElementById('mcq-options').style.display = (type === 'mcq') ? 'block' : 'none';
+    }
+
+    function addSection() {
+      const container = document.getElementById('sections');
+      const idx = container.children.length;
+      const html = `
+        <div class="p-4 border border-gray-300 rounded-lg bg-gray-50 mb-3 shadow-sm">
+          <input type="text" name="sections[${idx}][title]" placeholder="Section Title" class="w-full mb-2 p-2 border rounded focus:ring-2 focus:ring-blue-500" required />
+          <input type="number" name="sections[${idx}][count]" placeholder="No. of Questions" class="w-full mb-2 p-2 border rounded focus:ring-2 focus:ring-blue-500" required />
+          <select name="sections[${idx}][difficulty]" class="w-full mb-2 p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
+            <option value="">Select Difficulty</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+          <input type="number" name="sections[${idx}][marks]" placeholder="Marks per Question" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required />
+        </div>`;
+      container.insertAdjacentHTML('beforeend', html);
+    }
+  </script>
+</head>
+<body class="bg-gradient-to-br from-gray-100 via-white to-gray-100 min-h-screen p-6 flex items-center justify-center">
+  <div class="bg-white max-w-2xl w-full rounded-2xl shadow-lg p-8 border border-gray-200">
+    <h1 class="text-3xl font-extrabold text-center text-green-700 mb-6">Welcome to AI Exam Generator</h1>
+
+    <form action="/generate_exam" method="POST" enctype="multipart/form-data" class="space-y-6">
+
+      <div>
+        <label class="block font-medium text-gray-700 mb-1">Upload Study Material (PDF)</label>
+        <input type="file" name="pdf" accept="application/pdf" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" required />
+      </div>
+
+      <div>
+        <label class="block font-medium text-gray-700 mb-1">Select Exam Type</label>
+        <div class="flex gap-6 mt-2">
+          <label class="flex items-center gap-2">
+            <input type="radio" name="exam_type" value="written" onclick="toggleExamType()" required class="accent-green-600">
+            <span>Written</span>
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="exam_type" value="mcq" onclick="toggleExamType()" class="accent-blue-600">
+            <span>MCQ</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Written Exam Options -->
+      <div id="written-options" style="display: none;">
+        <label class="block font-medium text-gray-700 mb-1">Exam Heading</label>
+        <input type="text" name="heading" class="w-full p-3 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., SE MID-1 EXAM" />
+
+        <div id="sections"></div>
+
+        <button type="button" onclick="addSection()" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+          + Add Section
+        </button>
+      </div>
+
+      <!-- MCQ Options -->
+      <div id="mcq-options" style="display: none;">
+        <label class="block font-medium text-gray-700 mb-1">Number of MCQs</label>
+        <input type="number" name="num_questions" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g., 10" />
+      </div>
+
+      <div class="text-center pt-4">
+        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow">
+          🎯 Generate Exam
+        </button>
+      </div>
+    </form>
+
+    <div class="text-center mt-6">
+      <a href="/logout" class="text-red-600 hover:underline font-medium">🚪 Logout</a>
+    </div>
+  </div>
+</body>
+</html>
