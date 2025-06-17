@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+  <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -6,21 +7,13 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-    }
+    body { font-family: 'Inter', sans-serif; }
     input[type="radio"]:checked + span {
       font-weight: 600;
       color: #1d4ed8;
     }
-    .correct {
-      background-color: #d1fae5 !important;
-      border-color: #10b981 !important;
-    }
-    .wrong {
-      background-color: #fee2e2 !important;
-      border-color: #ef4444 !important;
-    }
+    .correct { background-color: #d1fae5; border-color: #10b981; }
+    .wrong { background-color: #fee2e2; border-color: #ef4444; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-blue-100 via-white to-blue-100 min-h-screen p-6 flex items-center justify-center">
@@ -53,7 +46,7 @@
 
         const q = questions[currentIndex];
         document.getElementById('question').textContent = `${currentIndex + 1}. ${q.question}`;
-        const optionsHTML = q.options.map((opt, idx) => `
+        const optionsHTML = q.options.map(opt => `
           <label class="option-label flex items-center space-x-2 p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition cursor-pointer" data-opt="${opt}">
             <input type="radio" name="option" value="${opt}" class="hidden" />
             <span>${opt}</span>
@@ -62,9 +55,7 @@
         document.getElementById('options').innerHTML = optionsHTML;
 
         document.querySelectorAll('.option-label').forEach(label => {
-          label.addEventListener('click', () => {
-            handleOptionClick(label);
-          });
+          label.addEventListener('click', () => handleOptionClick(label));
         });
       }
 
@@ -72,15 +63,10 @@
         const selectedOption = selectedLabel.getAttribute('data-opt').trim();
         const correctAnswer = questions[currentIndex].answer.trim();
 
-        const labels = document.querySelectorAll('.option-label');
-        labels.forEach(label => {
-          const value = label.getAttribute('data-opt').trim();
-          if (value === correctAnswer) {
-            label.classList.add('correct');
-          }
-          if (value === selectedOption && value !== correctAnswer) {
-            label.classList.add('wrong');
-          }
+        document.querySelectorAll('.option-label').forEach(label => {
+          const opt = label.getAttribute('data-opt').trim();
+          if (opt === correctAnswer) label.classList.add('correct');
+          if (opt === selectedOption && opt !== correctAnswer) label.classList.add('wrong');
           label.classList.add('pointer-events-none');
         });
 
