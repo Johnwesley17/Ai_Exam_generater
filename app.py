@@ -7,7 +7,7 @@ import requests
 import mysql.connector
 from dotenv import load_dotenv
 
-# Load environment variables (locally only; Railway will use env dashboard)
+# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
@@ -17,29 +17,23 @@ UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
-# ✅ Debug-enhanced MySQL connection function
+# Database connection
 def get_db_connection():
-    print("⚙️ Connecting to DB:")
-    print("Host:", os.getenv("MYSQL_HOST"))
-    print("Port:", os.getenv("MYSQL_PORT"))
-    print("User:", os.getenv("MYSQL_USER"))
-    print("DB:", os.getenv("MYSQL_DB"))
-
     return mysql.connector.connect(
         host=os.getenv("MYSQL_HOST"),
         port=int(os.getenv("MYSQL_PORT", "3306")),
         user=os.getenv("MYSQL_USER"),
         password=os.getenv("MYSQL_PASSWORD"),
         database=os.getenv("MYSQL_DB"),
-        ssl_ca=os.getenv("MYSQL_SSL_CA")  # e.g., /app/certs/ca.pem on Railway
+        ssl_ca=os.getenv("MYSQL_SSL_CA")
     )
 
-# PDF text extractor
+# Extract text from uploaded PDF
 def extract_text(pdf_path):
     doc = fitz.open(pdf_path)
     return " ".join([page.get_text() for page in doc]).strip()
 
-# Together AI question generator
+# Call Together API
 def generate_questions(prompt):
     headers = {
         "Authorization": f"Bearer {TOGETHER_API_KEY}",
@@ -56,6 +50,23 @@ def generate_questions(prompt):
     if res.status_code == 200:
         return res.json()['choices'][0]['message']['content']
     return ""
+
+# Clean malformed AI response
+def sanitize_ai_response(raw_text):
+    text = raw_text.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
+    text = re.sub(r"```json|```", "", text)
+    return text.strip()
+
+# Extract valid JSON array from response
+def extract_json_block(text):
+    try:
+        start = text.find('[')
+        end = text.rfind(']')
+        if start != -1 and end != -1:
+            return json.loads(text[start:end+1])
+    except json.JSONDecodeError as e:
+        print("⚠️ JSON Decode Error:", e)
+    return None
 
 @app.route('/')
 def home():
@@ -147,7 +158,7 @@ def generate_exam():
             prompt = f"""
 You are a question paper generator.
 Generate exactly {count} {difficulty}-level questions worth {marks} marks each from the material below.
-Only output the questions as a numbered list.
+Only output the questions as a numbered list. No explanations.
 
 Material:
 {text}
@@ -174,7 +185,10 @@ Material:
             return "Please enter a valid number of MCQs."
 
         prompt = f"""
-You are a test-set generator. Based on the study material below, return exactly {num} multiple-choice questions in pure JSON format. Do not explain.
+You are a test-set generator.
+Generate exactly {num} multiple-choice questions from the material below.
+
+⚠️ Return ONLY valid JSON. No explanations or notes.
 
 Format:
 [
@@ -188,19 +202,16 @@ Format:
 Material:
 {text}
 """
-        response = generate_questions(prompt)
-        if not response:
-            return "MCQ Generation Failed: Empty response from Together AI"
+        raw = generate_questions(prompt)
+        clean = sanitize_ai_response(raw)
+        mcqs = extract_json_block(clean)
 
-        match = re.search(r'\[\s*{.*}\s*\]', response, re.DOTALL)
-        if not match:
-            return f"MCQ Generation Failed: Invalid JSON\n\nRaw response:\n{response}"
+        if not mcqs:
+            with open("broken_mcq_log.txt", "a", encoding='utf-8') as log:
+                log.write(raw + "\n\n")
+            return f"❌ MCQ Generation Failed: Invalid JSON\n\nRaw response:\n{raw}"
 
-        try:
-            mcqs = json.loads(match.group())
-            return render_template('mcq_exam.html', questions_json=json.dumps(mcqs))
-        except json.JSONDecodeError as e:
-            return f"MCQ Generation Failed: JSON parse error\n\n{e}"
+        return render_template('mcq_exam.html', questions_json=json.dumps(mcqs))
 
 @app.route('/logout')
 def logout():
@@ -210,6 +221,5 @@ def logout():
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
