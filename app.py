@@ -16,23 +16,23 @@ UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
-# MySQL connection
+# MySQL connection with SSL
 def get_db_connection():
     return mysql.connector.connect(
         host=os.getenv("MYSQL_HOST"),
-        port=int(os.getenv("MYSQL_PORT", "3306")),  # ✅ Comma added here
+        port=int(os.getenv("MYSQL_PORT", "3306")),
         user=os.getenv("MYSQL_USER"),
         password=os.getenv("MYSQL_PASSWORD"),
         database=os.getenv("MYSQL_DB"),
-        ssl_ca=os.getenv("MYSQL_SSL_CA", "ca.pem")
+        ssl_ca=os.getenv("MYSQL_SSL_CA")  # ✅ Use correct CA file for Aiven
     )
 
-# Extract text from uploaded PDF
+# PDF text extractor
 def extract_text(pdf_path):
     doc = fitz.open(pdf_path)
     return " ".join([page.get_text() for page in doc]).strip()
 
-# Call Together AI API
+# Together AI question generator
 def generate_questions(prompt):
     headers = {
         "Authorization": f"Bearer {TOGETHER_API_KEY}",
@@ -63,13 +63,16 @@ def signup():
         email = request.form['email']
         password = generate_password_hash(request.form['password'])
 
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", (username, email, password))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return redirect('/login')
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", (username, email, password))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return redirect('/login')
+        except Exception as e:
+            return f"❌ Signup Failed: {str(e)}"
     return render_template('signup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -78,17 +81,20 @@ def login():
         email = request.form['email']
         password = request.form['password']
 
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT id, password FROM users WHERE email=%s", (email,))
-        user = cur.fetchone()
-        cur.close()
-        conn.close()
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT id, password FROM users WHERE email=%s", (email,))
+            user = cur.fetchone()
+            cur.close()
+            conn.close()
 
-        if user and check_password_hash(user[1], password):
-            session['user_id'] = user[0]
-            return redirect('/')
-        return "Invalid credentials"
+            if user and check_password_hash(user[1], password):
+                session['user_id'] = user[0]
+                return redirect('/')
+            return "Invalid credentials"
+        except Exception as e:
+            return f"❌ Login Failed: {str(e)}"
     return render_template('login.html')
 
 @app.route('/generate_exam', methods=['POST'])
@@ -194,10 +200,9 @@ def logout():
     session.clear()
     return redirect('/login')
 
-# ✅ Correct port for Railway deployment
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
 
-    port = int(os.environ.get("PORT", 8080))  # Railway auto-assigns this
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
