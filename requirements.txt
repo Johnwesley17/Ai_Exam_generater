@@ -1,5 +1,5 @@
 Flask
-flask-mysqldb
+mysql-connector-python
 fpdf
 python-dotenv
 PyMuPDF
