@@ -7,26 +7,31 @@ import requests
 import mysql.connector
 from dotenv import load_dotenv
 
-# Load .env for local development only
-if os.getenv("RAILWAY_ENV") is None:
-    load_dotenv()
+# Load environment variables (locally only; Railway will use env dashboard)
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "fallbacksecret")
+app.secret_key = os.getenv("SECRET_KEY")
 
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
-# MySQL connection with SSL (used for Railway/Aiven)
+# ✅ Debug-enhanced MySQL connection function
 def get_db_connection():
+    print("⚙️ Connecting to DB:")
+    print("Host:", os.getenv("MYSQL_HOST"))
+    print("Port:", os.getenv("MYSQL_PORT"))
+    print("User:", os.getenv("MYSQL_USER"))
+    print("DB:", os.getenv("MYSQL_DB"))
+
     return mysql.connector.connect(
         host=os.getenv("MYSQL_HOST"),
         port=int(os.getenv("MYSQL_PORT", "3306")),
         user=os.getenv("MYSQL_USER"),
         password=os.getenv("MYSQL_PASSWORD"),
         database=os.getenv("MYSQL_DB"),
-        ssl_ca=os.getenv("MYSQL_SSL_CA")  # Must be set as "/app/certs/ca.pem" in Railway
+        ssl_ca=os.getenv("MYSQL_SSL_CA")  # e.g., /app/certs/ca.pem on Railway
     )
 
 # PDF text extractor
@@ -34,7 +39,7 @@ def extract_text(pdf_path):
     doc = fitz.open(pdf_path)
     return " ".join([page.get_text() for page in doc]).strip()
 
-# Together AI call
+# Together AI question generator
 def generate_questions(prompt):
     headers = {
         "Authorization": f"Bearer {TOGETHER_API_KEY}",
