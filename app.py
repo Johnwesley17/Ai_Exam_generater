@@ -7,6 +7,7 @@ import requests
 import mysql.connector
 from dotenv import load_dotenv
 
+# Load .env variables
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
@@ -15,23 +16,23 @@ UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 
-# Database connection
+# MySQL connection
 def get_db_connection():
     return mysql.connector.connect(
-        host=os.getenv("MYSQL_HOST"),
+        host=os.getenv("MYSQL_HOST", "localhost"),
         port=int(os.getenv("MYSQL_PORT", 3306)),
-        user=os.getenv("MYSQL_USER"),
-        password=os.getenv("MYSQL_PASSWORD"),
-        database=os.getenv("MYSQL_DB"),
-        ssl_ca="ca.pem"
+        user=os.getenv("MYSQL_USER", "root"),
+        password=os.getenv("MYSQL_PASSWORD", ""),
+        database=os.getenv("MYSQL_DB", "examgen"),
+        ssl_ca=os.getenv("MYSQL_SSL_CA", "ca.pem")  # Add this to .env or use local file
     )
 
-# Extract PDF text
+# Extract text from uploaded PDF
 def extract_text(pdf_path):
     doc = fitz.open(pdf_path)
     return " ".join([page.get_text() for page in doc]).strip()
 
-# Together AI API call
+# Call Together AI API
 def generate_questions(prompt):
     headers = {
         "Authorization": f"Bearer {TOGETHER_API_KEY}",
@@ -61,6 +62,7 @@ def signup():
         username = request.form['username']
         email = request.form['email']
         password = generate_password_hash(request.form['password'])
+
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", (username, email, password))
@@ -75,12 +77,14 @@ def login():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT id, password FROM users WHERE email=%s", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
+
         if user and check_password_hash(user[1], password):
             session['user_id'] = user[0]
             return redirect('/')
@@ -116,6 +120,7 @@ def generate_exam():
         pdf.add_font('DejaVu', 'B', 'fonts/DejaVuSans-Bold.ttf', uni=True)
         pdf.set_font("DejaVu", size=14)
         pdf.add_page()
+
         for line in heading.strip().split("\n"):
             pdf.multi_cell(0, 10, line.strip(), align="C")
         pdf.ln(5)
@@ -125,9 +130,9 @@ def generate_exam():
             count = int(sec.get('count', 0))
             difficulty = sec.get('difficulty', 'medium')
             marks = sec.get('marks', '2')
+
             prompt = f"""
 You are a question paper generator.
-
 Generate exactly {count} {difficulty}-level questions worth {marks} marks each from the material below.
 Only output the questions as a numbered list.
 
@@ -142,7 +147,7 @@ Material:
             lines = ai_response.strip().split('\n')
             for line in lines:
                 line = line.strip()
-                if line and re.match(r"^\d+[\).]?\s", line):  # match "1. Question" or "1) Question"
+                if line and re.match(r"^\d+[\).]?\s", line):
                     pdf.multi_cell(0, 10, line, border=1)
                     pdf.ln(1)
 
@@ -176,14 +181,12 @@ Material:
 
         match = re.search(r'\[\s*{.*}\s*\]', response, re.DOTALL)
         if not match:
-            print("RAW AI OUTPUT:\n", response)
             return f"MCQ Generation Failed: Invalid JSON\n\nRaw response:\n{response}"
 
         try:
             mcqs = json.loads(match.group())
             return render_template('mcq_exam.html', questions_json=json.dumps(mcqs))
         except json.JSONDecodeError as e:
-            print("Matched JSON but decode failed:", match.group())
             return f"MCQ Generation Failed: JSON parse error\n\n{e}"
 
 @app.route('/logout')
