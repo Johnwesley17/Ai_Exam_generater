@@ -1,26 +1,30 @@
 from flask import Flask, render_template, request, redirect, session, send_file
-from flask_mysqldb import MySQL
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import fitz  # PyMuPDF
 import os, json, tempfile, uuid, re
 import requests
+import mysql.connector
 from dotenv import load_dotenv
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
-# MySQL config
-app.config['MYSQL_HOST'] = os.getenv("MYSQL_HOST", "localhost")
-app.config['MYSQL_USER'] = os.getenv("MYSQL_USER", "root")
-app.config['MYSQL_PASSWORD'] = os.getenv("MYSQL_PASSWORD", "")
-app.config['MYSQL_DB'] = os.getenv("MYSQL_DB", "examgen")
-mysql = MySQL(app)
-
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
+
+# Database connection
+def get_db_connection():
+    return mysql.connector.connect(
+        host=os.getenv("MYSQL_HOST"),
+        port=int(os.getenv("MYSQL_PORT", 3306)),
+        user=os.getenv("MYSQL_USER"),
+        password=os.getenv("MYSQL_PASSWORD"),
+        database=os.getenv("MYSQL_DB"),
+        ssl_ca="ca.pem"
+    )
 
 # Extract PDF text
 def extract_text(pdf_path):
@@ -57,10 +61,12 @@ def signup():
         username = request.form['username']
         email = request.form['email']
         password = generate_password_hash(request.form['password'])
-        cur = mysql.connection.cursor()
+        conn = get_db_connection()
+        cur = conn.cursor()
         cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", (username, email, password))
-        mysql.connection.commit()
+        conn.commit()
         cur.close()
+        conn.close()
         return redirect('/login')
     return render_template('signup.html')
 
@@ -69,10 +75,12 @@ def login():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
-        cur = mysql.connection.cursor()
+        conn = get_db_connection()
+        cur = conn.cursor()
         cur.execute("SELECT id, password FROM users WHERE email=%s", (email,))
         user = cur.fetchone()
         cur.close()
+        conn.close()
         if user and check_password_hash(user[1], password):
             session['user_id'] = user[0]
             return redirect('/')
@@ -186,6 +194,5 @@ def logout():
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    port = int(os.environ.get('PORT', 10000))  # Render sets this automatically
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
-
