@@ -149,9 +149,12 @@ Material:
 {text}
 """
                 ai_response = generate_questions(prompt)
+
+                # ✅ Debug log
+                print(f"\n--- AI Response for {title} ({count}x{marks} marks, {difficulty}) ---\n{ai_response}\n--- End ---")
+
                 lines = ai_response.strip().split('\n')
                 questions = [line.strip() for line in lines if re.match(r"^\d+[\).]?\s", line)]
-
                 if len(questions) > count:
                     questions = questions[:count]
 
@@ -219,4 +222,3 @@ if __name__ == '__main__':
         os.makedirs(UPLOAD_FOLDER)
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
-
