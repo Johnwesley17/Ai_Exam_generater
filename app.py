@@ -24,7 +24,7 @@ def get_db_connection():
         user=os.getenv("MYSQL_USER", "root"),
         password=os.getenv("MYSQL_PASSWORD", ""),
         database=os.getenv("MYSQL_DB", "examgen"),
-        ssl_ca=os.getenv("MYSQL_SSL_CA", "ca.pem")  # Add this to .env or use local file
+        ssl_ca=os.getenv("MYSQL_SSL_CA", "ca.pem")
     )
 
 # Extract text from uploaded PDF
@@ -194,8 +194,10 @@ def logout():
     session.clear()
     return redirect('/login')
 
+# ✅ Correct port for Railway deployment
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+
+    port = int(os.environ.get("PORT", 8080))  # Railway auto-assigns this
+    app.run(host="0.0.0.0", port=port)
