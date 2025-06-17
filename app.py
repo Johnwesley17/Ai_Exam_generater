@@ -20,12 +20,13 @@ TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 def get_db_connection():
     return mysql.connector.connect(
         host=os.getenv("MYSQL_HOST"),
-        port=int(os.getenv("MYSQL_PORT", "3306"))
+        port=int(os.getenv("MYSQL_PORT", "3306")),  # ✅ Comma added here
         user=os.getenv("MYSQL_USER"),
         password=os.getenv("MYSQL_PASSWORD"),
         database=os.getenv("MYSQL_DB"),
         ssl_ca=os.getenv("MYSQL_SSL_CA", "ca.pem")
     )
+
 # Extract text from uploaded PDF
 def extract_text(pdf_path):
     doc = fitz.open(pdf_path)
