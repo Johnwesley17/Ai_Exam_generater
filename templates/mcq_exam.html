@@ -57,6 +57,7 @@
         document.getElementById('next-btn').classList.add('hidden');
 
         document.querySelectorAll('.option-label').forEach(label => {
+          label.classList.remove('correct', 'wrong', 'disabled');
           label.addEventListener('click', () => handleOptionClick(label));
         });
       }
@@ -75,7 +76,7 @@
           } else {
             label.classList.add('wrong');
           }
-          label.classList.add('disabled'); // Disable all after selection
+          label.classList.add('disabled');
         });
 
         if (selectedOption === correctAnswer) {
