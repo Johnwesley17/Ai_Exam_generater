@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, session, send_file
+
+ from flask import Flask, render_template, request, redirect, session, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import fitz  # PyMuPDF
@@ -52,21 +53,26 @@ def generate_questions(prompt):
 # Sanitize quotes & code blocks
 def sanitize_ai_response(text):
     text = text.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
-    text = re.sub(r"```json|```", "", text)
+    text = re.sub(r"
+json|
+", "", text)
     return text.strip()
 
+# Home route
 @app.route('/')
 def home():
     if 'user_id' not in session:
         return redirect('/login')
     return render_template('index.html')
 
+# Signup
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
         username = request.form['username']
         email = request.form['email']
         password = generate_password_hash(request.form['password'])
+
         try:
             conn = get_db_connection()
             cur = conn.cursor()
@@ -77,9 +83,10 @@ def signup():
             conn.close()
             return redirect('/login')
         except Exception as e:
-            return f"\u274c Signup Failed: {str(e)}"
+            return f"❌ Signup Failed: {str(e)}"
     return render_template('signup.html')
 
+# Login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -98,9 +105,10 @@ def login():
                 return redirect('/')
             return "Invalid credentials"
         except Exception as e:
-            return f"\u274c Login Failed: {str(e)}"
+            return f"❌ Login Failed: {str(e)}"
     return render_template('login.html')
 
+# Exam Generator Route
 @app.route('/generate_exam', methods=['POST'])
 def generate_exam():
     if 'user_id' not in session:
@@ -113,7 +121,79 @@ def generate_exam():
     file.save(filepath)
     text = extract_text(filepath)
 
-    if exam_type == 'mcq':
+    # ✅ WRITTEN EXAM PDF OUTPUT
+    if exam_type == 'written':
+        heading = request.form['heading']
+        sections = {}
+        for key in request.form:
+            match = re.match(r"sections\[(\d+)\]\[(\w+)\]", key)
+            if match:
+                index, field = int(match.group(1)), match.group(2)
+                sections.setdefault(index, {})[field] = request.form[key]
+
+        sorted_sections = [sections[i] for i in sorted(sections)]
+
+        pdf = FPDF()
+        pdf.set_margins(15, 15, 15)
+        pdf.add_font('DejaVu', '', 'fonts/DejaVuSans.ttf', uni=True)
+        pdf.add_font('DejaVu', 'B', 'fonts/DejaVuSans-Bold.ttf', uni=True)
+        pdf.set_font("DejaVu", size=14)
+        pdf.add_page()
+        for line in heading.strip().split("\n"):
+            pdf.multi_cell(0, 10, line.strip(), align="C")
+        pdf.ln(5)
+
+        for sec in sorted_sections:
+            try:
+                title = sec.get('title', 'Section').strip()
+                count = int(sec.get('count', 0))
+                difficulty = sec.get('difficulty', 'medium').strip().lower()
+                marks = sec.get('marks', '2').strip()
+                if count <= 0:
+                    continue
+
+                prompt = f"""
+You are a university exam paper generator.
+
+Generate exactly {count} distinct {difficulty}-level questions, each worth {marks} marks, from the material below.
+
+⚠️ Output only numbered questions (e.g., 1., 2., 3.). No extra text, no explanations, no headers.
+
+Material:
+{text}
+"""
+                ai_response = generate_questions(prompt)
+                if not ai_response.strip():
+                    continue
+
+                # Filter exact number of valid numbered questions
+                questions = []
+                for line in ai_response.strip().split("\n"):
+                    line = line.strip()
+                    if re.match(r"^\d+[\).]?\s", line):
+                        questions.append(line)
+                    if len(questions) >= count:
+                        break
+
+                pdf.set_font("DejaVu", style='B', size=12)
+                pdf.set_fill_color(240, 240, 240)
+                pdf.cell(0, 10, title, ln=True, fill=True)
+                pdf.set_font("DejaVu", size=11)
+
+                for q in questions:
+                    pdf.multi_cell(0, 10, q, border=1)
+                    pdf.ln(1)
+
+            except Exception as e:
+                print(f"⚠️ Error in section: {e}")
+                continue
+
+        out_path = os.path.join(tempfile.gettempdir(), "written_exam.pdf")
+        pdf.output(out_path)
+        return send_file(out_path, as_attachment=True)
+
+    # ✅ MCQ Exam Route
+    elif exam_type == 'mcq':
         num = int(request.form.get('num_questions', 0) or 0)
         if num <= 0:
             return "Please enter a valid number of MCQs."
@@ -121,7 +201,7 @@ def generate_exam():
         prompt = f"""
 You are a test-set generator. Based on the study material below, return exactly {num} multiple-choice questions.
 
-\u26a0\ufe0f Return ONLY valid JSON. No explanations.
+⚠️ Return ONLY valid JSON. No explanations.
 
 Format:
 [
@@ -135,7 +215,6 @@ Format:
 Material:
 {text}
 """
-
         raw = generate_questions(prompt)
         clean = sanitize_ai_response(raw)
 
@@ -143,41 +222,22 @@ Material:
             start = clean.find('[')
             end = clean.rfind(']')
             mcqs = json.loads(clean[start:end+1])
-            if not isinstance(mcqs, list):
-                raise ValueError("Response is not a list")
-
-            filtered = []
-            for item in mcqs:
-                if (
-                    isinstance(item, dict)
-                    and "question" in item
-                    and "options" in item
-                    and "answer" in item
-                    and isinstance(item["options"], list)
-                    and len(item["options"]) == 4
-                ):
-                    filtered.append(item)
-                if len(filtered) == num:
-                    break
-
-            if len(filtered) < num:
-                return f"\u26a0\ufe0f Only {len(filtered)} questions generated. Try reducing the requested number."
-
-            return render_template('mcq_exam.html', questions_json=json.dumps(filtered))
-
         except Exception as e:
             with open("broken_mcq_log.txt", "a", encoding="utf-8") as log:
                 log.write(raw + "\n\n")
-            return f"\u274c MCQ Generation Failed: Invalid JSON\n\nRaw response:\n{raw}"
+            return f"❌ MCQ Generation Failed: Invalid JSON\n\nRaw response:\n{raw}"
 
+        return render_template('mcq_exam.html', questions_json=json.dumps(mcqs))
+
+# Logout
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/login')
 
+# Run the app
 if __name__ == '__main__':
     if not os.path.exists(UPLOAD_FOLDER):
         os.makedirs(UPLOAD_FOLDER)
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
-
