@@ -20,7 +20,7 @@ TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
 def get_db_connection():
     return mysql.connector.connect(
         host=os.getenv("MYSQL_HOST"),
-        port=int(os.getenv("MYSQL_PORT")),
+        port=int(os.getenv("MYSQL_PORT", "3306"))
         user=os.getenv("MYSQL_USER"),
         password=os.getenv("MYSQL_PASSWORD"),
         database=os.getenv("MYSQL_DB"),
