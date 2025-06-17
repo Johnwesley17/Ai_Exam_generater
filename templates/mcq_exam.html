@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>MCQ Exam - AI Exam Generator</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
     body { font-family: 'Inter', sans-serif; }
-    .correct { background-color: #d1fae5; border-color: #10b981; }
-    .wrong { background-color: #fee2e2; border-color: #ef4444; }
-    .disabled { pointer-events: none; }
+    .correct { background-color: #d1fae5 !important; border-color: #10b981 !important; }
+    .wrong { background-color: #fee2e2 !important; border-color: #ef4444 !important; }
+    .disabled { pointer-events: none; opacity: 0.9; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-blue-100 via-white to-blue-100 min-h-screen p-6 flex items-center justify-center">
@@ -19,9 +19,6 @@
     <div id="quiz-box">
       <p id="question" class="text-xl font-semibold text-gray-800 mb-4"></p>
       <div id="options" class="space-y-3"></div>
-      <button id="next-btn" onclick="nextQuestion()" class="hidden mt-6 w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition duration-200 shadow">
-        Next
-      </button>
     </div>
 
     <div id="result" class="hidden text-center mt-6 text-2xl font-bold text-green-600"></div>
@@ -54,10 +51,8 @@
           </label>
         `).join('');
         document.getElementById('options').innerHTML = optionsHTML;
-        document.getElementById('next-btn').classList.add('hidden');
 
         document.querySelectorAll('.option-label').forEach(label => {
-          label.classList.remove('correct', 'wrong', 'disabled');
           label.addEventListener('click', () => handleOptionClick(label));
         });
       }
@@ -71,24 +66,18 @@
 
         document.querySelectorAll('.option-label').forEach(label => {
           const val = label.getAttribute('data-opt').trim();
-          if (val === correctAnswer) {
-            label.classList.add('correct');
-          } else {
-            label.classList.add('wrong');
-          }
+          if (val === correctAnswer) label.classList.add('correct');
+          if (val !== correctAnswer) label.classList.add('wrong');
           label.classList.add('disabled');
         });
 
-        if (selectedOption === correctAnswer) {
-          score++;
-        }
+        if (selectedOption === correctAnswer) score++;
 
-        document.getElementById('next-btn').classList.remove('hidden');
-      }
-
-      function nextQuestion() {
-        currentIndex++;
-        renderQuestion();
+        // Auto next after 1.5 sec
+        setTimeout(() => {
+          currentIndex++;
+          renderQuestion();
+        }, 1500);
       }
 
       renderQuestion();
