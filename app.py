@@ -1,5 +1,4 @@
-
- from flask import Flask, render_template, request, redirect, session, send_file
+from flask import Flask, render_template, request, redirect, session, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import fitz  # PyMuPDF
