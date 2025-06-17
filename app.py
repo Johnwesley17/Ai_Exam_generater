@@ -129,14 +129,20 @@ def generate_exam():
 
     if exam_type == 'written':
         heading = request.form['heading']
-        sections = []
+        
+        # Dynamic section extraction using regex
+        sections = {}
         for key in request.form:
-            if key.startswith('sections['):
-                index = int(key.split('[')[1].split(']')[0])
-                field = key.split('][')[1][:-1]
-                while len(sections) <= index:
-                    sections.append({})
-                sections[index][field] = request.form[key]
+            if key.startswith("sections["):
+                match = re.match(r"sections\[(\d+)\]\[(\w+)\]", key)
+                if match:
+                    index = int(match.group(1))
+                    field = match.group(2)
+                    if index not in sections:
+                        sections[index] = {}
+                    sections[index][field] = request.form[key]
+
+        sorted_sections = [sections[i] for i in sorted(sections.keys())]
 
         pdf = FPDF()
         pdf.set_margins(left=15, top=15, right=15)
@@ -149,11 +155,14 @@ def generate_exam():
             pdf.multi_cell(0, 10, line.strip(), align="C")
         pdf.ln(5)
 
-        for sec in sections:
+        for sec in sorted_sections:
             title = sec.get('title', 'Section')
-            count = int(sec.get('count', 0))
+            count = int(sec.get('count', 0) or 0)
             difficulty = sec.get('difficulty', 'medium')
             marks = sec.get('marks', '2')
+
+            if count <= 0:
+                continue
 
             prompt = f"""
 You are a question paper generator.
@@ -164,11 +173,13 @@ Material:
 {text}
 """
             ai_response = generate_questions(prompt)
+            lines = ai_response.strip().split('\n')
+
             pdf.set_font("DejaVu", style='B', size=12)
             pdf.set_fill_color(240, 240, 240)
             pdf.cell(0, 10, title, ln=True, fill=True)
             pdf.set_font("DejaVu", size=11)
-            lines = ai_response.strip().split('\n')
+
             for line in lines:
                 line = line.strip()
                 if line and re.match(r"^\d+[\).]?\s", line):
