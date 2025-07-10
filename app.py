@@ -3,17 +3,21 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
 import fitz
 import os, json, tempfile, uuid, re
-import requests
 import mysql.connector
 from dotenv import load_dotenv
+from groq import Groq  # ✅ NEW
 
+# Load env variables
 load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
-
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
+
+# ✅ Replace Together key with Groq key
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+client = Groq(api_key=GROQ_API_KEY)
 
 def get_db_connection():
     return mysql.connector.connect(
@@ -29,22 +33,18 @@ def extract_text(pdf_path):
     doc = fitz.open(pdf_path)
     return " ".join([page.get_text() for page in doc]).strip()
 
+# ✅ Rewritten using Groq API
 def generate_questions(prompt):
-    headers = {
-        "Authorization": f"Bearer {TOGETHER_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": "meta-llama/Llama-3-70b-chat-hf",
-        "max_tokens": 1500,
-        "temperature": 0.7,
-        "top_p": 0.7,
-        "messages": [{"role": "user", "content": prompt}]
-    }
-    res = requests.post("https://api.together.xyz/v1/chat/completions", headers=headers, json=data)
-    if res.status_code == 200:
-        return res.json()['choices'][0]['message']['content']
-    return ""
+    response = client.chat.completions.create(
+        model="llama3-8b-8192",  # or use llama3-70b-8192
+        messages=[
+            {"role": "system", "content": "You are an exam question generator."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7,
+        max_tokens=1500
+    )
+    return response.choices[0].message.content.strip()
 
 def sanitize_ai_response(text):
     text = text.replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'")
@@ -150,7 +150,6 @@ Material:
 """
                 ai_response = generate_questions(prompt)
 
-                # ✅ Debug log
                 print(f"\n--- AI Response for {title} ({count}x{marks} marks, {difficulty}) ---\n{ai_response}\n--- End ---")
 
                 lines = ai_response.strip().split('\n')
