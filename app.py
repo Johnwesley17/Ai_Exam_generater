@@ -5,7 +5,7 @@ import fitz  # PyMuPDF
 import os, json, tempfile, uuid, re
 import mysql.connector
 from dotenv import load_dotenv
-from groq import Groq  # ✅ Using Groq API
+from groq import Groq
 
 load_dotenv()
 
@@ -33,7 +33,7 @@ def extract_text(pdf_path):
 
 def generate_questions(prompt):
     response = client.chat.completions.create(
-        model="llama3-8b-8192",  # or llama3-70b-8192
+        model="llama3-8b-8192",
         messages=[
             {"role": "system", "content": "You are an exam question generator."},
             {"role": "user", "content": prompt}
@@ -56,6 +56,8 @@ def home():
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
+    if 'user_id' in session:
+        return redirect('/')
     if request.method == 'POST':
         username = request.form['username']
         email = request.form['email']
@@ -75,6 +77,8 @@ def signup():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user_id' in session:
+        return redirect('/')
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -106,7 +110,7 @@ def generate_exam():
     file.save(filepath)
 
     text = extract_text(filepath)
-    text = text[:3000]  # ✅ Limit to prevent Groq token overflow
+    text = text[:3000]  # ✅ Prevent token overflow with Groq
 
     if exam_type == 'written':
         heading = request.form['heading']
@@ -120,8 +124,12 @@ def generate_exam():
 
         pdf = FPDF()
         pdf.set_margins(15, 15, 15)
-        pdf.add_font('DejaVu', '', 'fonts/DejaVuSans.ttf', uni=True)
-        pdf.add_font('DejaVu', 'B', 'fonts/DejaVuSans-Bold.ttf', uni=True)
+        font_path = 'fonts/DejaVuSans.ttf'
+        bold_path = 'fonts/DejaVuSans-Bold.ttf'
+        if not os.path.exists('fonts'):
+            os.makedirs('fonts')
+        pdf.add_font('DejaVu', '', font_path, uni=True)
+        pdf.add_font('DejaVu', 'B', bold_path, uni=True)
         pdf.set_font("DejaVu", size=14)
         pdf.add_page()
 
@@ -220,4 +228,3 @@ if __name__ == '__main__':
         os.makedirs(UPLOAD_FOLDER)
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
-
