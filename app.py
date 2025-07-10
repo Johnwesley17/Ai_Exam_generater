@@ -1,21 +1,19 @@
 from flask import Flask, render_template, request, redirect, session, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from fpdf import FPDF
-import fitz
+import fitz  # PyMuPDF
 import os, json, tempfile, uuid, re
 import mysql.connector
 from dotenv import load_dotenv
-from groq import Groq  # ✅ NEW
+from groq import Groq  # ✅ Using Groq API
 
-# Load env variables
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
+
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# ✅ Replace Together key with Groq key
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -33,10 +31,9 @@ def extract_text(pdf_path):
     doc = fitz.open(pdf_path)
     return " ".join([page.get_text() for page in doc]).strip()
 
-# ✅ Rewritten using Groq API
 def generate_questions(prompt):
     response = client.chat.completions.create(
-        model="llama3-8b-8192",  # or use llama3-70b-8192
+        model="llama3-8b-8192",  # or llama3-70b-8192
         messages=[
             {"role": "system", "content": "You are an exam question generator."},
             {"role": "user", "content": prompt}
@@ -107,7 +104,9 @@ def generate_exam():
     filename = str(uuid.uuid4()) + ".pdf"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
+
     text = extract_text(filepath)
+    text = text[:3000]  # ✅ Limit to prevent Groq token overflow
 
     if exam_type == 'written':
         heading = request.form['heading']
@@ -150,7 +149,7 @@ Material:
 """
                 ai_response = generate_questions(prompt)
 
-                print(f"\n--- AI Response for {title} ({count}x{marks} marks, {difficulty}) ---\n{ai_response}\n--- End ---")
+                print(f"\n--- AI Response for {title} ---\n{ai_response}\n--- End ---")
 
                 lines = ai_response.strip().split('\n')
                 questions = [line.strip() for line in lines if re.match(r"^\d+[\).]?\s", line)]
@@ -221,3 +220,4 @@ if __name__ == '__main__':
         os.makedirs(UPLOAD_FOLDER)
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
+
