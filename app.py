@@ -14,6 +14,11 @@ app.secret_key = os.getenv("SECRET_KEY")
 
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Ensure the upload folder is created even in production
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -110,7 +115,7 @@ def generate_exam():
     file.save(filepath)
 
     text = extract_text(filepath)
-    text = text[:3000]  # ✅ Prevent token overflow with Groq
+    text = text[:3000]
 
     if exam_type == 'written':
         heading = request.form['heading']
@@ -156,8 +161,6 @@ Material:
 {text}
 """
                 ai_response = generate_questions(prompt)
-
-                print(f"\n--- AI Response for {title} ---\n{ai_response}\n--- End ---")
 
                 lines = ai_response.strip().split('\n')
                 questions = [line.strip() for line in lines if re.match(r"^\d+[\).]?\s", line)]
@@ -223,8 +226,7 @@ def logout():
     session.clear()
     return redirect('/login')
 
+# Note: this block runs only for local development (python app.py)
 if __name__ == '__main__':
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
