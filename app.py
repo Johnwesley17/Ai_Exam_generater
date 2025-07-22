@@ -189,20 +189,28 @@ Material:
             return "Please enter a valid number of MCQs."
 
         prompt = f"""
-You are a test-set generator. Return exactly {num} multiple-choice questions in JSON format.
+You are a test-set generator. Based on the study material provided, generate exactly {num} multiple-choice questions in valid JSON format.
 
-Only return JSON. No explanations. Format:
+Instructions:
+- Each question must have exactly 4 **unique** options.
+- Only **one correct answer** per question.
+- Do **not** repeat options within the same question.
+- Do **not** include explanations or any extra text.
+- Return only a **JSON array** in the following format and structure:
+
 [
   {{
     "question": "What is Python?",
-    "options": ["A. Snake", "B. Language", "C. Car", "D. Movie"],
-    "answer": "B. Language"
-  }}
+    "options": ["A. Snake", "B. Programming language", "C. Car", "D. Movie"],
+    "answer": "B. Programming language"
+  }},
+  ...
 ]
 
-Material:
+Study Material:
 {text}
 """
+
         raw = generate_questions(prompt)
         clean = sanitize_ai_response(raw)
 
