@@ -63,6 +63,7 @@ def home():
 def signup():
     if 'user_id' in session:
         return redirect('/')
+
     if request.method == 'POST':
         username = request.form['username']
         email = request.form['email']
@@ -70,38 +71,55 @@ def signup():
 
         try:
             conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", (username, email, password))
-            conn.commit()
-            cur.close()
+            # Use buffered cursor
+            with conn.cursor(buffered=True) as cur:
+                cur.execute(
+                    "INSERT INTO users (username, email, password) VALUES (%s, %s, %s)",
+                    (username, email, password)
+                )
+                conn.commit()
             conn.close()
             return redirect('/login')
+        except mysql.connector.Error as e:
+            return f"❌ Signup Failed: {e}"
         except Exception as e:
-            return f"❌ Signup Failed: {str(e)}"
+            return f"❌ Something went wrong: {e}"
+
     return render_template('signup.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if 'user_id' in session:
         return redirect('/')
+
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
+
         try:
             conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT id, password FROM users WHERE email=%s", (email,))
-            user = cur.fetchone()
-            cur.close()
+            # Use buffered cursor
+            with conn.cursor(buffered=True) as cur:
+                cur.execute(
+                    "SELECT id, password FROM users WHERE email=%s",
+                    (email,)
+                )
+                user = cur.fetchone()
             conn.close()
 
             if user and check_password_hash(user[1], password):
                 session['user_id'] = user[0]
                 return redirect('/')
             return "Invalid credentials"
+
+        except mysql.connector.Error as e:
+            return f"❌ Login Failed: {e}"
         except Exception as e:
-            return f"❌ Login Failed: {str(e)}"
+            return f"❌ Something went wrong: {e}"
+
     return render_template('login.html')
+
 
 @app.route('/generate_exam', methods=['POST'])
 def generate_exam():
@@ -233,3 +251,4 @@ Study Material:
 def logout():
     session.clear()
     return redirect('/login')
+
