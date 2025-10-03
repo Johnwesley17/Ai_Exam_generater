@@ -38,7 +38,7 @@ def extract_text(pdf_path):
 
 def generate_questions(prompt):
     response = client.chat.completions.create(
-        model="llama3-8b-8192",
+        model="llama-3.1-8b-instant",
         messages=[
             {"role": "system", "content": "You are an exam question generator."},
             {"role": "user", "content": prompt}
@@ -251,4 +251,5 @@ Study Material:
 def logout():
     session.clear()
     return redirect('/login')
+
 
